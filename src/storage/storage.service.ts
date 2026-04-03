@@ -7,6 +7,12 @@ import {
 } from '@aws-sdk/client-s3';
 import { randomUUID } from 'crypto';
 
+interface UploadedFile {
+  originalname: string;
+  buffer: Buffer;
+  mimetype: string;
+}
+
 @Injectable()
 export class StorageService {
   private readonly s3: S3Client;
@@ -29,10 +35,7 @@ export class StorageService {
     });
   }
 
-  async upload(
-    folder: string,
-    file: Express.Multer.File,
-  ): Promise<string> {
+  async upload(folder: string, file: UploadedFile): Promise<string> {
     const ext = file.originalname.split('.').pop() || 'jpg';
     const key = `${folder}/${randomUUID()}.${ext}`;
 

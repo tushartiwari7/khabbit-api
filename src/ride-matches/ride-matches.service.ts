@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { eq, sql } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service';
-import { rideMatches, rides } from '../database/schema';
+import { rideMatches } from '../database/schema';
 
 @Injectable()
 export class RideMatchesService {
@@ -36,7 +36,7 @@ export class RideMatchesService {
     matchId: string,
     body: { status: 'paid' | 'received'; method?: string },
   ) {
-    const rows = await this.database.db.execute(sql`
+    const result = await this.database.db.execute(sql`
       SELECT rm.*, r.giver_id
       FROM ride_matches rm
       JOIN rides r ON r.id = rm.ride_id
@@ -44,7 +44,7 @@ export class RideMatchesService {
       LIMIT 1
     `);
 
-    const match = rows[0] as any;
+    const match = result.rows[0] as any;
     if (!match) throw new NotFoundException('Match not found');
 
     const isGiver = match.giver_id === userId;

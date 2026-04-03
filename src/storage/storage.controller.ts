@@ -27,7 +27,7 @@ export class StorageController {
   @UseInterceptors(
     FileInterceptor('file', {
       limits: { fileSize: MAX_FILE_SIZE },
-      fileFilter: (_req, file, cb) => {
+      fileFilter: (_req: any, file: any, cb: any) => {
         if (!file.mimetype.startsWith('image/')) {
           cb(new BadRequestException('Only image files are allowed'), false);
           return;
@@ -38,7 +38,7 @@ export class StorageController {
   )
   async uploadAvatar(
     @CurrentUser() user: FirebaseUser,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file: any,
   ) {
     if (!file) throw new BadRequestException('No file provided');
 
@@ -56,7 +56,7 @@ export class StorageController {
   @UseInterceptors(
     FileInterceptor('file', {
       limits: { fileSize: MAX_FILE_SIZE },
-      fileFilter: (_req, file, cb) => {
+      fileFilter: (_req: any, file: any, cb: any) => {
         if (!file.mimetype.startsWith('image/')) {
           cb(new BadRequestException('Only image files are allowed'), false);
           return;
@@ -67,7 +67,7 @@ export class StorageController {
   )
   async uploadVehicleImage(
     @CurrentUser() user: FirebaseUser,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file: any,
     @Param('vehicleId') vehicleId: string,
   ) {
     if (!file) throw new BadRequestException('No file provided');

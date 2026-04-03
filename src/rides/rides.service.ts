@@ -3,7 +3,7 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
-import { eq, desc, sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service';
 import { rides, rideMatches, chatrooms, profiles } from '../database/schema';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -23,7 +23,7 @@ export class RidesService {
       throw new BadRequestException('from_point and to_point are required');
     }
 
-    const [ride] = await this.database.db.execute<typeof rides.$inferSelect>(sql`
+    const result = await this.database.db.execute(sql`
       INSERT INTO rides (
         giver_id, from_point, to_point, from_address, to_address,
         route_polyline, departure_time, available_seats, vehicle_id
@@ -42,11 +42,11 @@ export class RidesService {
         ST_Y(to_point::geometry) AS to_lat, ST_X(to_point::geometry) AS to_lng
     `);
 
-    return ride;
+    return result.rows[0];
   }
 
   async findAvailable(lat: number, lng: number, radiusMeters: number) {
-    const rows = await this.database.db.execute(sql`
+    const result = await this.database.db.execute(sql`
       SELECT
         r.*,
         ST_Y(r.from_point::geometry) AS from_lat,
@@ -61,11 +61,11 @@ export class RidesService {
       ORDER BY distance_m
     `);
 
-    return rows;
+    return result.rows;
   }
 
   async getByGiver(userId: string) {
-    const rows = await this.database.db.execute(sql`
+    const result = await this.database.db.execute(sql`
       SELECT
         r.*,
         ST_Y(r.from_point::geometry) AS from_lat,
@@ -79,7 +79,7 @@ export class RidesService {
       ORDER BY r.departure_time DESC
     `);
 
-    return rows;
+    return result.rows;
   }
 
   async offerToTaker(

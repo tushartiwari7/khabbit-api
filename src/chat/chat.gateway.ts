@@ -21,7 +21,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private socketToProfile = new Map<string, string>();
 
   constructor(
-    @Inject('FIREBASE_APP') private firebaseApp: admin.app.App,
+    @Inject('FIREBASE_APP') private firebaseApp: admin.app.App | null,
     private chatService: ChatService,
     private profilesService: ProfilesService,
     private notifications: NotificationsService,
@@ -30,7 +30,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleConnection(client: Socket) {
     try {
       const token = client.handshake.auth?.token;
-      if (!token) {
+      if (!token || !this.firebaseApp) {
         client.disconnect();
         return;
       }

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { eq, asc, sql } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service';
-import { messages, chatrooms, rideMatches, rides } from '../database/schema';
+import { messages } from '../database/schema';
 
 @Injectable()
 export class ChatService {
@@ -25,7 +25,7 @@ export class ChatService {
   }
 
   async isParticipant(chatroomId: string, profileId: string): Promise<boolean> {
-    const rows = await this.database.db.execute(sql`
+    const result = await this.database.db.execute(sql`
       SELECT 1
       FROM chatrooms c
       JOIN ride_matches rm ON rm.id = c.ride_match_id
@@ -35,11 +35,11 @@ export class ChatService {
       LIMIT 1
     `);
 
-    return rows.length > 0;
+    return result.rows.length > 0;
   }
 
   async getChatroomsForUser(profileId: string) {
-    const rows = await this.database.db.execute(sql`
+    const result = await this.database.db.execute(sql`
       SELECT c.*, rm.taker_id, r.giver_id,
         (SELECT content FROM messages m WHERE m.chatroom_id = c.id ORDER BY m.created_at DESC LIMIT 1) AS last_message
       FROM chatrooms c
@@ -49,6 +49,6 @@ export class ChatService {
       ORDER BY c.created_at DESC
     `);
 
-    return rows;
+    return result.rows;
   }
 }

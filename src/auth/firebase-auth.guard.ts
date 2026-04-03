@@ -9,9 +9,17 @@ import * as admin from 'firebase-admin';
 
 @Injectable()
 export class FirebaseAuthGuard implements CanActivate {
-  constructor(@Inject('FIREBASE_APP') private firebaseApp: admin.app.App) {}
+  constructor(
+    @Inject('FIREBASE_APP') private firebaseApp: admin.app.App | null,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    if (!this.firebaseApp) {
+      throw new UnauthorizedException(
+        'Firebase is not configured — auth is unavailable',
+      );
+    }
+
     const request = context.switchToHttp().getRequest();
     const authHeader = request.headers['authorization'];
 

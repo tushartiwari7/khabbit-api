@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { eq, desc, sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service';
 import { rideRequests } from '../database/schema';
 
@@ -11,7 +11,7 @@ export class RideRequestsService {
     const fromPoint = requestData.from_point as { lat: number; lng: number };
     const toPoint = requestData.to_point as { lat: number; lng: number };
 
-    const [request] = await this.database.db.execute(sql`
+    const result = await this.database.db.execute(sql`
       INSERT INTO ride_requests (
         taker_id, from_point, to_point, from_address, to_address,
         num_riders, preferred_time
@@ -28,11 +28,11 @@ export class RideRequestsService {
         ST_Y(to_point::geometry) AS to_lat, ST_X(to_point::geometry) AS to_lng
     `);
 
-    return request;
+    return result.rows[0];
   }
 
   async getByTaker(userId: string) {
-    const rows = await this.database.db.execute(sql`
+    const result = await this.database.db.execute(sql`
       SELECT
         rr.*,
         ST_Y(rr.from_point::geometry) AS from_lat,
@@ -44,7 +44,7 @@ export class RideRequestsService {
       ORDER BY rr.created_at DESC
     `);
 
-    return rows;
+    return result.rows;
   }
 
   async findMatchingRides(requestId: string) {
@@ -56,7 +56,7 @@ export class RideRequestsService {
 
     if (!request) throw new NotFoundException('Ride request not found');
 
-    const rows = await this.database.db.execute(sql`
+    const result = await this.database.db.execute(sql`
       SELECT
         r.*,
         ST_Y(r.from_point::geometry) AS from_lat,
@@ -75,6 +75,6 @@ export class RideRequestsService {
       ORDER BY ST_Distance(r.from_point, rr.from_point)
     `);
 
-    return rows;
+    return result.rows;
   }
 }
