@@ -8,32 +8,39 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { VehiclesService } from './vehicles.service';
-import { SupabaseAuthGuard } from '../auth/supabase-auth.guard';
-import { CurrentUser } from '../auth/user.decorator';
+import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
+import { CurrentUser, FirebaseUser } from '../auth/user.decorator';
+import { ProfilesService } from '../profiles/profiles.service';
 
 @Controller('vehicles')
-@UseGuards(SupabaseAuthGuard)
+@UseGuards(FirebaseAuthGuard)
 export class VehiclesController {
-  constructor(private readonly vehiclesService: VehiclesService) {}
+  constructor(
+    private readonly vehiclesService: VehiclesService,
+    private readonly profilesService: ProfilesService,
+  ) {}
 
   @Get()
-  getMyVehicles(@CurrentUser('id') userId: string) {
-    return this.vehiclesService.getByUser(userId);
+  async getMyVehicles(@CurrentUser() user: FirebaseUser) {
+    const profile = await this.profilesService.getByFirebaseUid(user.uid);
+    return this.vehiclesService.getByUser(profile.id);
   }
 
   @Post()
-  createVehicle(
-    @CurrentUser('id') userId: string,
+  async createVehicle(
+    @CurrentUser() user: FirebaseUser,
     @Body() body: Record<string, unknown>,
   ) {
-    return this.vehiclesService.create(userId, body);
+    const profile = await this.profilesService.getByFirebaseUid(user.uid);
+    return this.vehiclesService.create(profile.id, body as any);
   }
 
   @Delete(':id')
-  deleteVehicle(
-    @CurrentUser('id') userId: string,
+  async deleteVehicle(
+    @CurrentUser() user: FirebaseUser,
     @Param('id') vehicleId: string,
   ) {
-    return this.vehiclesService.delete(userId, vehicleId);
+    const profile = await this.profilesService.getByFirebaseUid(user.uid);
+    return this.vehiclesService.delete(profile.id, vehicleId);
   }
 }

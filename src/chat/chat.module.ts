@@ -1,13 +1,12 @@
 import { Module } from '@nestjs/common';
-import { RidesController } from './rides.controller';
-import { RidesService } from './rides.service';
+import { ChatGateway } from './chat.gateway';
+import { ChatService } from './chat.service';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ProfilesModule } from '../profiles/profiles.module';
 
 @Module({
   imports: [NotificationsModule, ProfilesModule],
-  controllers: [RidesController],
-  providers: [RidesService],
-  exports: [RidesService],
+  providers: [ChatGateway, ChatService],
+  exports: [ChatService],
 })
-export class RidesModule {}
+export class ChatModule {}

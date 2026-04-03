@@ -1,23 +1,36 @@
-import { Controller, Get, Put, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Put, Post, Body, UseGuards } from '@nestjs/common';
 import { ProfilesService } from './profiles.service';
-import { SupabaseAuthGuard } from '../auth/supabase-auth.guard';
-import { CurrentUser } from '../auth/user.decorator';
+import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
+import { CurrentUser, FirebaseUser } from '../auth/user.decorator';
 
 @Controller('profile')
-@UseGuards(SupabaseAuthGuard)
+@UseGuards(FirebaseAuthGuard)
 export class ProfilesController {
   constructor(private readonly profilesService: ProfilesService) {}
 
   @Get()
-  getProfile(@CurrentUser('id') userId: string) {
-    return this.profilesService.getProfile(userId);
+  async getProfile(@CurrentUser() user: FirebaseUser) {
+    return this.profilesService.getByFirebaseUid(user.uid);
   }
 
   @Put()
-  updateProfile(
-    @CurrentUser('id') userId: string,
+  async updateProfile(
+    @CurrentUser() user: FirebaseUser,
     @Body() updateData: Record<string, unknown>,
   ) {
-    return this.profilesService.updateProfile(userId, updateData);
+    const profile = await this.profilesService.getByFirebaseUid(user.uid);
+    return this.profilesService.update(profile.id, updateData);
+  }
+
+  @Post('signup')
+  async signup(
+    @CurrentUser() user: FirebaseUser,
+    @Body() body: { invite_code?: string },
+  ) {
+    return this.profilesService.createOnSignup(
+      user.uid,
+      user.email!,
+      body.invite_code,
+    );
   }
 }

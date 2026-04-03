@@ -8,20 +8,25 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { RidesService } from './rides.service';
-import { SupabaseAuthGuard } from '../auth/supabase-auth.guard';
-import { CurrentUser } from '../auth/user.decorator';
+import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
+import { CurrentUser, FirebaseUser } from '../auth/user.decorator';
+import { ProfilesService } from '../profiles/profiles.service';
 
 @Controller('rides')
-@UseGuards(SupabaseAuthGuard)
+@UseGuards(FirebaseAuthGuard)
 export class RidesController {
-  constructor(private readonly ridesService: RidesService) {}
+  constructor(
+    private readonly ridesService: RidesService,
+    private readonly profilesService: ProfilesService,
+  ) {}
 
   @Post()
-  createRide(
-    @CurrentUser('id') userId: string,
+  async createRide(
+    @CurrentUser() user: FirebaseUser,
     @Body() body: Record<string, unknown>,
   ) {
-    return this.ridesService.create(userId, body);
+    const profile = await this.profilesService.getByFirebaseUid(user.uid);
+    return this.ridesService.create(profile.id, body);
   }
 
   @Get('available')
@@ -34,16 +39,18 @@ export class RidesController {
   }
 
   @Get('my')
-  getMyRides(@CurrentUser('id') userId: string) {
-    return this.ridesService.getByGiver(userId);
+  async getMyRides(@CurrentUser() user: FirebaseUser) {
+    const profile = await this.profilesService.getByFirebaseUid(user.uid);
+    return this.ridesService.getByGiver(profile.id);
   }
 
   @Post(':id/offer')
-  offerRide(
-    @CurrentUser('id') userId: string,
+  async offerRide(
+    @CurrentUser() user: FirebaseUser,
     @Param('id') rideId: string,
     @Body() body: { taker_id: string; ride_request_id?: string },
   ) {
-    return this.ridesService.offerToTaker(userId, rideId, body);
+    const profile = await this.profilesService.getByFirebaseUid(user.uid);
+    return this.ridesService.offerToTaker(profile.id, rideId, body);
   }
 }

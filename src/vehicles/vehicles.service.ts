@@ -3,55 +3,43 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
-import { SupabaseService } from '../supabase/supabase.service';
+import { eq, desc } from 'drizzle-orm';
+import { DatabaseService } from '../database/database.service';
+import { vehicles } from '../database/schema';
 
 @Injectable()
 export class VehiclesService {
-  constructor(private supabase: SupabaseService) {}
+  constructor(private database: DatabaseService) {}
 
   async getByUser(userId: string) {
-    const { data, error } = await this.supabase
-      .getAdminClient()
-      .from('vehicles')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw new Error(`Failed to fetch vehicles: ${error.message}`);
-    return data;
+    return this.database.db
+      .select()
+      .from(vehicles)
+      .where(eq(vehicles.userId, userId))
+      .orderBy(desc(vehicles.createdAt));
   }
 
-  async create(userId: string, vehicleData: Record<string, unknown>) {
-    const { data, error } = await this.supabase
-      .getAdminClient()
-      .from('vehicles')
-      .insert({ ...vehicleData, user_id: userId })
-      .select()
-      .single();
+  async create(userId: string, data: typeof vehicles.$inferInsert) {
+    const [vehicle] = await this.database.db
+      .insert(vehicles)
+      .values({ ...data, userId })
+      .returning();
 
-    if (error) throw new Error(`Failed to create vehicle: ${error.message}`);
-    return data;
+    return vehicle;
   }
 
   async delete(userId: string, vehicleId: string) {
-    const { data: existing } = await this.supabase
-      .getAdminClient()
-      .from('vehicles')
-      .select('user_id')
-      .eq('id', vehicleId)
-      .single();
+    const [existing] = await this.database.db
+      .select({ userId: vehicles.userId })
+      .from(vehicles)
+      .where(eq(vehicles.id, vehicleId))
+      .limit(1);
 
     if (!existing) throw new NotFoundException('Vehicle not found');
-    if (existing.user_id !== userId)
+    if (existing.userId !== userId)
       throw new ForbiddenException('Not your vehicle');
 
-    const { error } = await this.supabase
-      .getAdminClient()
-      .from('vehicles')
-      .delete()
-      .eq('id', vehicleId);
-
-    if (error) throw new Error(`Failed to delete vehicle: ${error.message}`);
+    await this.database.db.delete(vehicles).where(eq(vehicles.id, vehicleId));
     return { deleted: true };
   }
 }

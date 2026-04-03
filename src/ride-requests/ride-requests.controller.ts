@@ -1,24 +1,30 @@
 import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common';
 import { RideRequestsService } from './ride-requests.service';
-import { SupabaseAuthGuard } from '../auth/supabase-auth.guard';
-import { CurrentUser } from '../auth/user.decorator';
+import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
+import { CurrentUser, FirebaseUser } from '../auth/user.decorator';
+import { ProfilesService } from '../profiles/profiles.service';
 
 @Controller('ride-requests')
-@UseGuards(SupabaseAuthGuard)
+@UseGuards(FirebaseAuthGuard)
 export class RideRequestsController {
-  constructor(private readonly service: RideRequestsService) {}
+  constructor(
+    private readonly service: RideRequestsService,
+    private readonly profilesService: ProfilesService,
+  ) {}
 
   @Post()
-  createRequest(
-    @CurrentUser('id') userId: string,
+  async createRequest(
+    @CurrentUser() user: FirebaseUser,
     @Body() body: Record<string, unknown>,
   ) {
-    return this.service.create(userId, body);
+    const profile = await this.profilesService.getByFirebaseUid(user.uid);
+    return this.service.create(profile.id, body);
   }
 
   @Get('my')
-  getMyRequests(@CurrentUser('id') userId: string) {
-    return this.service.getByTaker(userId);
+  async getMyRequests(@CurrentUser() user: FirebaseUser) {
+    const profile = await this.profilesService.getByFirebaseUid(user.uid);
+    return this.service.getByTaker(profile.id);
   }
 
   @Get(':id/matches')

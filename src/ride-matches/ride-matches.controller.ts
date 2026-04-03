@@ -1,27 +1,33 @@
 import { Controller, Post, Param, Body, UseGuards } from '@nestjs/common';
 import { RideMatchesService } from './ride-matches.service';
-import { SupabaseAuthGuard } from '../auth/supabase-auth.guard';
-import { CurrentUser } from '../auth/user.decorator';
+import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
+import { CurrentUser, FirebaseUser } from '../auth/user.decorator';
+import { ProfilesService } from '../profiles/profiles.service';
 
 @Controller('ride-matches')
-@UseGuards(SupabaseAuthGuard)
+@UseGuards(FirebaseAuthGuard)
 export class RideMatchesController {
-  constructor(private readonly service: RideMatchesService) {}
+  constructor(
+    private readonly service: RideMatchesService,
+    private readonly profilesService: ProfilesService,
+  ) {}
 
   @Post(':id/accept')
-  acceptMatch(
-    @CurrentUser('id') userId: string,
+  async acceptMatch(
+    @CurrentUser() user: FirebaseUser,
     @Param('id') matchId: string,
   ) {
-    return this.service.accept(userId, matchId);
+    const profile = await this.profilesService.getByFirebaseUid(user.uid);
+    return this.service.accept(profile.id, matchId);
   }
 
   @Post(':id/payment')
-  confirmPayment(
-    @CurrentUser('id') userId: string,
+  async confirmPayment(
+    @CurrentUser() user: FirebaseUser,
     @Param('id') matchId: string,
     @Body() body: { status: 'paid' | 'received'; method?: string },
   ) {
-    return this.service.confirmPayment(userId, matchId, body);
+    const profile = await this.profilesService.getByFirebaseUid(user.uid);
+    return this.service.confirmPayment(profile.id, matchId, body);
   }
 }

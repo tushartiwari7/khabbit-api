@@ -3,34 +3,32 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
-import { SupabaseService } from '../supabase/supabase.service';
+import { eq, sql } from 'drizzle-orm';
+import { DatabaseService } from '../database/database.service';
+import { rideMatches, rides } from '../database/schema';
 
 @Injectable()
 export class RideMatchesService {
-  constructor(private supabase: SupabaseService) {}
+  constructor(private database: DatabaseService) {}
 
   async accept(userId: string, matchId: string) {
-    const { data: match } = await this.supabase
-      .getAdminClient()
-      .from('ride_matches')
-      .select('*')
-      .eq('id', matchId)
-      .single();
+    const [match] = await this.database.db
+      .select()
+      .from(rideMatches)
+      .where(eq(rideMatches.id, matchId))
+      .limit(1);
 
     if (!match) throw new NotFoundException('Match not found');
-    if (match.taker_id !== userId)
+    if (match.takerId !== userId)
       throw new ForbiddenException('Only the taker can accept');
 
-    const { data, error } = await this.supabase
-      .getAdminClient()
-      .from('ride_matches')
-      .update({ status: 'accepted' })
-      .eq('id', matchId)
-      .select()
-      .single();
+    const [updated] = await this.database.db
+      .update(rideMatches)
+      .set({ status: 'accepted' })
+      .where(eq(rideMatches.id, matchId))
+      .returning();
 
-    if (error) throw new Error(`Failed to accept match: ${error.message}`);
-    return data;
+    return updated;
   }
 
   async confirmPayment(
@@ -38,16 +36,18 @@ export class RideMatchesService {
     matchId: string,
     body: { status: 'paid' | 'received'; method?: string },
   ) {
-    const { data: match } = await this.supabase
-      .getAdminClient()
-      .from('ride_matches')
-      .select('*, rides(giver_id)')
-      .eq('id', matchId)
-      .single();
+    const rows = await this.database.db.execute(sql`
+      SELECT rm.*, r.giver_id
+      FROM ride_matches rm
+      JOIN rides r ON r.id = rm.ride_id
+      WHERE rm.id = ${matchId}
+      LIMIT 1
+    `);
 
+    const match = rows[0] as any;
     if (!match) throw new NotFoundException('Match not found');
 
-    const isGiver = match.rides?.giver_id === userId;
+    const isGiver = match.giver_id === userId;
     const isTaker = match.taker_id === userId;
 
     if (body.status === 'paid' && !isTaker)
@@ -56,20 +56,16 @@ export class RideMatchesService {
       throw new ForbiddenException('Only giver can mark as received');
 
     const updateData: Record<string, unknown> = {
-      payment_status: body.status,
+      paymentStatus: body.status,
     };
-    if (body.method) updateData.payment_method = body.method;
+    if (body.method) updateData.paymentMethod = body.method;
 
-    const { data, error } = await this.supabase
-      .getAdminClient()
-      .from('ride_matches')
-      .update(updateData)
-      .eq('id', matchId)
-      .select()
-      .single();
+    const [updated] = await this.database.db
+      .update(rideMatches)
+      .set(updateData)
+      .where(eq(rideMatches.id, matchId))
+      .returning();
 
-    if (error)
-      throw new Error(`Failed to update payment: ${error.message}`);
-    return data;
+    return updated;
   }
 }

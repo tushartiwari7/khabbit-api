@@ -1,61 +1,80 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { SupabaseService } from '../supabase/supabase.service';
+import { eq, desc, sql } from 'drizzle-orm';
+import { DatabaseService } from '../database/database.service';
+import { rideRequests } from '../database/schema';
 
 @Injectable()
 export class RideRequestsService {
-  constructor(private supabase: SupabaseService) {}
+  constructor(private database: DatabaseService) {}
 
   async create(userId: string, requestData: Record<string, unknown>) {
     const fromPoint = requestData.from_point as { lat: number; lng: number };
     const toPoint = requestData.to_point as { lat: number; lng: number };
 
-    const { data, error } = await this.supabase.getAdminClient().rpc(
-      'create_ride_request',
-      {
-        p_taker_id: userId,
-        p_from_lng: fromPoint.lng,
-        p_from_lat: fromPoint.lat,
-        p_to_lng: toPoint.lng,
-        p_to_lat: toPoint.lat,
-        p_from_address: requestData.from_address || null,
-        p_to_address: requestData.to_address || null,
-        p_num_riders: requestData.num_riders || 1,
-        p_preferred_time: requestData.preferred_time || null,
-      },
-    );
+    const [request] = await this.database.db.execute(sql`
+      INSERT INTO ride_requests (
+        taker_id, from_point, to_point, from_address, to_address,
+        num_riders, preferred_time
+      ) VALUES (
+        ${userId},
+        ST_MakePoint(${fromPoint.lng}, ${fromPoint.lat})::geography,
+        ST_MakePoint(${toPoint.lng}, ${toPoint.lat})::geography,
+        ${(requestData.from_address as string) || null},
+        ${(requestData.to_address as string) || null},
+        ${(requestData.num_riders as number) || 1},
+        ${(requestData.preferred_time as string) || null}
+      ) RETURNING *,
+        ST_Y(from_point::geometry) AS from_lat, ST_X(from_point::geometry) AS from_lng,
+        ST_Y(to_point::geometry) AS to_lat, ST_X(to_point::geometry) AS to_lng
+    `);
 
-    if (error) throw new Error(`Failed to create request: ${error.message}`);
-    return data;
+    return request;
   }
 
   async getByTaker(userId: string) {
-    const { data, error } = await this.supabase
-      .getAdminClient()
-      .from('ride_requests')
-      .select('*')
-      .eq('taker_id', userId)
-      .order('created_at', { ascending: false });
+    const rows = await this.database.db.execute(sql`
+      SELECT
+        rr.*,
+        ST_Y(rr.from_point::geometry) AS from_lat,
+        ST_X(rr.from_point::geometry) AS from_lng,
+        ST_Y(rr.to_point::geometry) AS to_lat,
+        ST_X(rr.to_point::geometry) AS to_lng
+      FROM ride_requests rr
+      WHERE rr.taker_id = ${userId}
+      ORDER BY rr.created_at DESC
+    `);
 
-    if (error) throw new Error(`Failed to fetch requests: ${error.message}`);
-    return data;
+    return rows;
   }
 
   async findMatchingRides(requestId: string) {
-    const { data: request } = await this.supabase
-      .getAdminClient()
-      .from('ride_requests')
-      .select('*')
-      .eq('id', requestId)
-      .single();
+    const [request] = await this.database.db
+      .select()
+      .from(rideRequests)
+      .where(eq(rideRequests.id, requestId))
+      .limit(1);
 
     if (!request) throw new NotFoundException('Ride request not found');
 
-    const { data, error } = await this.supabase.getAdminClient().rpc(
-      'find_matching_rides_for_request',
-      { p_request_id: requestId },
-    );
+    const rows = await this.database.db.execute(sql`
+      SELECT
+        r.*,
+        ST_Y(r.from_point::geometry) AS from_lat,
+        ST_X(r.from_point::geometry) AS from_lng,
+        ST_Y(r.to_point::geometry) AS to_lat,
+        ST_X(r.to_point::geometry) AS to_lng,
+        ST_Distance(r.from_point, rr.from_point) AS distance_from_m,
+        ST_Distance(r.to_point, rr.to_point) AS distance_to_m
+      FROM rides r, ride_requests rr
+      WHERE rr.id = ${requestId}
+        AND r.status = 'active'
+        AND r.departure_time > now()
+        AND r.available_seats >= rr.num_riders
+        AND ST_DWithin(r.from_point, rr.from_point, 5000)
+        AND ST_DWithin(r.to_point, rr.to_point, 5000)
+      ORDER BY ST_Distance(r.from_point, rr.from_point)
+    `);
 
-    if (error) throw new Error(`Failed to find matches: ${error.message}`);
-    return data;
+    return rows;
   }
 }
