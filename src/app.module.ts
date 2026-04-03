@@ -9,6 +9,7 @@ import { RidesModule } from './rides/rides.module';
 import { RideRequestsModule } from './ride-requests/ride-requests.module';
 import { RideMatchesModule } from './ride-matches/ride-matches.module';
 import { ChatModule } from './chat/chat.module';
+import { StorageModule } from './storage/storage.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { AnalyticsInterceptor } from './analytics/analytics.interceptor';
@@ -24,6 +25,7 @@ import { AnalyticsInterceptor } from './analytics/analytics.interceptor';
     RideRequestsModule,
     RideMatchesModule,
     ChatModule,
+    StorageModule,
     NotificationsModule,
     AnalyticsModule,
   ],

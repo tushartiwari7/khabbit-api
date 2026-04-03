@@ -15,12 +15,15 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
+    "db:apply": "NODE_TLS_REJECT_UNAUTHORIZED=0 node scripts/db-apply.mjs",
+    "db:apply:status": "NODE_TLS_REJECT_UNAUTHORIZED=0 node scripts/db-apply.mjs --status",
     "db:studio": "drizzle-kit studio"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1023.0",
     "@googlemaps/google-maps-services-js": "^3.4.2",
     "@neondatabase/serverless": "^0.10.0",
     "@nestjs/common": "^11.1.17",
@@ -44,8 +47,10 @@
     "@nestjs/schematics": "^11.0.9",
     "@nestjs/testing": "^11.1.17",
     "@types/express": "^5.0.6",
+    "@types/multer": "^1.4.13",
     "@types/node": "^25.5.0",
     "drizzle-kit": "^0.30.0",
+    "pg": "^8.20.0",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^6.0.2"

@@ -1,0 +1,55 @@
+---
+description: Drizzle ORM and Neon PostgreSQL patterns
+globs: src/database/**,drizzle/**,drizzle.config.ts,scripts/db-*.mjs
+alwaysApply: false
+---
+
+# Database Conventions
+
+## Schema (`src/database/schema.ts`)
+
+- All tables use `uuid` primary keys (most with `defaultRandom()`).
+- Timestamps are `timestamp with time zone` using `.defaultNow()`.
+- Geography columns use a `customType` that maps `{ lat, lng }` to `SRID=4326;POINT(lng lat)`.
+
+### Known Drizzle Issue: Geography Type Quoting
+
+`drizzle-kit generate` wraps `geography(Point, 4326)` in double quotes in the SQL output, which PostgreSQL rejects. The `scripts/db-apply.mjs` script auto-fixes this by stripping the quotes. If running SQL manually, remove quotes around geography types:
+
+```sql
+-- BAD (generated):  "geography(Point, 4326)"
+-- GOOD (fixed):     geography(Point, 4326)
+```
+
+## Connection
+
+- Uses `@neondatabase/serverless` (HTTP driver, port 443) — NOT `pg`.
+- The `pg` package is a dev dependency only for `drizzle-kit` internals.
+- `DatabaseService` creates the Drizzle client via `neon()` + `drizzle()`.
+
+## Migration Workflow
+
+```bash
+npm run db:generate      # creates SQL in drizzle/
+npm run db:apply         # applies via Neon HTTP driver
+npm run db:apply:status  # show which migrations are applied
+```
+
+Never use `drizzle-kit push` or `drizzle-kit migrate` on this machine (corporate proxy blocks TCP:5432).
+
+## PostGIS Queries
+
+For geospatial operations, use raw SQL via Drizzle's `sql` tag:
+
+```typescript
+import { sql } from 'drizzle-orm';
+
+// Creating a geography point
+sql`ST_MakePoint(${lng}, ${lat})::geography`
+
+// Distance check (meters)
+sql`ST_DWithin(${rides.fromPoint}, ST_MakePoint(${lng}, ${lat})::geography, ${radiusMeters})`
+
+// Reading coordinates back
+sql`ST_X(${rides.fromPoint}::geometry) as lng, ST_Y(${rides.fromPoint}::geometry) as lat`
+```

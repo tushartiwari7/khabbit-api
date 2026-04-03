@@ -1,0 +1,32 @@
+---
+description: Khabbit carpool app — project architecture, repos, and stack overview
+alwaysApply: true
+---
+
+# Khabbit Architecture
+
+Multi-repo carpool app. Sibling repos:
+
+| Repo | Purpose | Stack |
+|------|---------|-------|
+| `khabbit-api` (this repo) | REST + WebSocket backend | NestJS 11, Drizzle ORM, Neon PostgreSQL, Firebase Admin, Socket.IO, Cloudflare R2 |
+| `khabbit-mobile` | Mobile app | Expo SDK 54, React Native 0.81, expo-router 5, Firebase Auth, socket.io-client |
+| `khabbit-shared` | Types, constants, Zod schemas | TypeScript library, published as `@khabbit/shared` |
+
+## Key Services
+
+- **Auth**: Firebase Auth (email-link sign-in). Mobile gets ID token → API validates via `FirebaseAuthGuard`.
+- **Database**: Neon PostgreSQL with PostGIS. Drizzle ORM (not Prisma). Schema in `src/database/schema.ts`.
+- **Realtime**: Socket.IO gateway on NestJS (`ChatGateway`), not Supabase Realtime.
+- **Storage**: Cloudflare R2 via `@aws-sdk/client-s3`. Uploads go through the API, not direct from mobile.
+- **Push**: Expo Push Notifications via `expo-server-sdk`.
+- **Analytics**: PostHog (server + mobile SDKs).
+- **Maps**: Google Maps (`@googlemaps/google-maps-services-js` on API, `react-native-maps` on mobile).
+- **Deploy**: Railway (API).
+
+## Corporate Network Constraint
+
+The dev machine is behind a TLS-intercepting corporate proxy. The `pg` TCP driver (port 5432) DOES NOT work. Always use:
+- `@neondatabase/serverless` (Neon HTTP driver, port 443) for database access
+- `NODE_TLS_REJECT_UNAUTHORIZED=0` when running DB scripts locally
+- `npm run db:apply` instead of `drizzle-kit push` for migrations (uses the HTTP driver)

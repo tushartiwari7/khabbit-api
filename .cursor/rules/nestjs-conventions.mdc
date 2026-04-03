@@ -1,0 +1,63 @@
+---
+description: NestJS backend conventions for khabbit-api
+globs: src/**/*.ts
+alwaysApply: false
+---
+
+# khabbit-api Conventions
+
+## Module Structure
+
+One folder per domain feature, each containing:
+- `*.module.ts` — NestJS module (imports, providers, exports)
+- `*.controller.ts` — HTTP endpoints
+- `*.service.ts` — business logic + Drizzle queries
+
+Exception: `chat/` uses a `ChatGateway` (Socket.IO) instead of a controller.
+
+## Auth Pattern
+
+Every protected endpoint uses:
+```typescript
+@UseGuards(FirebaseAuthGuard)
+@Get()
+async handler(@CurrentUser() user: FirebaseUser) {
+  // user.uid — Firebase UID
+  // user.email — user email
+}
+```
+
+- Guard: `FirebaseAuthGuard` verifies `Authorization: Bearer <idToken>` via `firebase-admin`.
+- Decorator: `@CurrentUser()` extracts the Firebase user. `@CurrentUser('uid')` for just the UID.
+
+## Database Access
+
+Inject `DatabaseService`, then use `this.database.db` (Drizzle instance):
+```typescript
+constructor(private database: DatabaseService) {}
+
+const [row] = await this.database.db
+  .select()
+  .from(profiles)
+  .where(eq(profiles.firebaseUid, uid))
+  .limit(1);
+```
+
+- Schema is in `src/database/schema.ts` — import table references from there.
+- For PostGIS: use `sql` template from `drizzle-orm` to call `ST_MakePoint`, `ST_DWithin`, `ST_AsText`.
+- NEVER use the `pg` driver directly. The app uses `@neondatabase/serverless` (HTTP).
+
+## Config
+
+- `ConfigModule.forRoot({ isGlobal: true })` — use `ConfigService` to read env vars.
+- Global prefix is `api` (set in `main.ts`).
+- `ValidationPipe` with `whitelist: true, forbidNonWhitelisted: true, transform: true`.
+- Path alias: `@/*` → `src/*`.
+
+## Migration Workflow
+
+1. Edit `src/database/schema.ts`
+2. `npm run db:generate` — creates SQL in `drizzle/`
+3. `npm run db:apply` — applies via Neon HTTP driver (handles corporate proxy)
+
+Do NOT use `drizzle-kit push` or `drizzle-kit migrate` — they use the `pg` TCP driver which fails behind the corporate proxy.
