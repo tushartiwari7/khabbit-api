@@ -1,7 +1,8 @@
 FROM node:22-slim AS deps
 WORKDIR /app
+RUN npm install -g npm@latest
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm install --ignore-scripts=false
 
 FROM node:22-slim AS build
 WORKDIR /app
@@ -11,8 +12,9 @@ RUN npm run build
 
 FROM node:22-slim AS prod-deps
 WORKDIR /app
+RUN npm install -g npm@latest
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+RUN npm install --omit=dev --ignore-scripts=false
 
 FROM node:22-slim
 WORKDIR /app
