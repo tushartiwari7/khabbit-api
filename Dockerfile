@@ -1,22 +1,20 @@
-FROM node:22-slim AS deps
+FROM node:22-alpine AS deps
 WORKDIR /app
-RUN npm install -g npm@latest
 COPY package.json package-lock.json ./
-RUN npm install --ignore-scripts=false
+RUN npm install
 
-FROM node:22-slim AS build
+FROM node:22-alpine AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
 
-FROM node:22-slim AS prod-deps
+FROM node:22-alpine AS prod-deps
 WORKDIR /app
-RUN npm install -g npm@latest
 COPY package.json package-lock.json ./
-RUN npm install --omit=dev --ignore-scripts=false
+RUN npm install --omit=dev
 
-FROM node:22-slim
+FROM node:22-alpine
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=prod-deps /app/node_modules ./node_modules
